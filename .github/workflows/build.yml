@@ -1,0 +1,43 @@
+name: Build TranslucentTB Portable
+
+on:
+  push:
+    branches: [ "**" ]
+  workflow_dispatch:
+
+jobs:
+  build-x64:
+    runs-on: windows-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Setup NuGet
+      uses: nuget/setup-nuget@v2
+
+    - name: Integrate vcpkg
+      shell: cmd
+      run: vcpkg integrate install
+
+    - name: Restore NuGet packages
+      run: nuget restore TranslucentTB.slnx
+
+    - name: Build TranslucentTB (x64 Release)
+      run: msbuild TranslucentTB.slnx /p:Configuration=Release /p:Platform=x64 /p:BuildType=Canary /m
+
+    - name: Create Portable Zip Package
+      shell: powershell
+      run: |
+        New-Item -ItemType Directory -Path "${{ github.workspace }}\artifacts" -Force
+        .\.azp\scripts\create-portable.ps1 -Platform "x64" -Configuration "Release" -WorkDir "${{ runner.temp }}" -OutputDir "${{ github.workspace }}\artifacts" -Compress
+
+    - name: Upload Portable Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: TranslucentTB-portable-x64-release
+        path: artifacts/*.zip
